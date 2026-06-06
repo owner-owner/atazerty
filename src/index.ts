@@ -5,7 +5,7 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 const app = express();
 app.get('/', (_req, res) => {
-  res.send('بوت zero7even شغال 24 ساعة!');
+  res.send('البوت شغال 24 ساعة بدون قفز!');
 });
 app.listen(PORT, () => {
   console.log(`الموقع جاهز للربط مع UptimeRobot على بورت ${PORT}`);
@@ -14,16 +14,16 @@ app.listen(PORT, () => {
 const BOT_CONFIG = {
   host: 'zero7even.net',
   port: 25565,
-  username: 'AZSRGDTS34245',
+  username: 'atiolp', 
 };
 
-const RECONNECT_DELAY_MS = 5000;
-
+// جعل وقت إعادة الاتصال بارد (كل دقيقتين) عشان ما يسبب سبام للسيرفر
+const RECONNECT_DELAY_MS = 8000; 
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function scheduleReconnect(reason: string) {
   if (reconnectTimeout) return;
-  console.log(`[Reconnect] سيتم إعادة الاتصال خلال ${RECONNECT_DELAY_MS / 1000} ثواني... السبب: ${reason}`);
+  console.log(`[Reconnect] سيتم إعادة الاتصال خلال ${RECONNECT_DELAY_MS / 1000} ثانية... السبب: ${reason}`);
   reconnectTimeout = setTimeout(() => {
     reconnectTimeout = null;
     startBot();
@@ -50,45 +50,33 @@ function startBot() {
 
   const bot = mineflayer.createBot(BOT_CONFIG);
 
-  bot.on('spawn', () => {
-    console.log('[Bot] ✓ البوت دخل سيرفر zero7even بنجاح! (spawn)');
-  });
-
-  // Log every chat message so we can see server responses (captcha prompts, auth messages, etc.)
   bot.on('message', (jsonMsg) => {
     const text = jsonMsg.toString();
     console.log(`[Chat] ${text}`);
-  });
 
-  // Log title/subtitle packets (some servers show captcha or auth prompts as titles)
-  bot._client.on('title', (packet: Record<string, unknown>) => {
-    console.log('[Title packet]', JSON.stringify(packet));
-  });
-
-  const afkInterval = setInterval(() => {
-    if (bot.entity) {
-      bot.setControlState('jump', true);
-      setTimeout(() => bot.setControlState('jump', false), 100);
+    if (text.includes('login') || text.includes('/login') || text.includes('تسجيل الدخول')) {
+      console.log('[Bot] 🔑 تم رصد رسالة الحماية! جاري تسجيل الدخول...');
+      bot.chat('/login AZERTY65'); 
     }
-  }, 60000);
+  });
+
+  bot.on('spawn', () => {
+    console.log('[Bot] ✓ البوت رسبن رسميّاً وهو الآن واقف وثابت بدون حركة.');
+  });
 
   bot.on('kicked', (reason) => {
-    clearInterval(afkInterval);
     const readable = extractText(reason);
     console.log(`[Kicked] النص: "${readable}"`);
-    console.log('[Kicked] Raw:', JSON.stringify(reason, null, 2));
     scheduleReconnect(`kicked: ${readable}`);
   });
 
   bot.on('end', (reason) => {
-    clearInterval(afkInterval);
     console.log(`[End] سبب انتهاء الاتصال: "${reason}"`);
     scheduleReconnect(`end: ${reason}`);
   });
 
   bot.on('error', (err) => {
     console.log(`[Error] نوع الخطأ: ${err.name}, الرسالة: ${err.message}`);
-    console.log('[Error] Stack:', err.stack);
   });
 }
 
